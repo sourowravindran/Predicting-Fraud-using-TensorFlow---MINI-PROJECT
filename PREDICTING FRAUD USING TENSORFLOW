@@ -1,0 +1,124 @@
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+import tensorflow as tf
+from tensorflow import keras
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.layers import Dense, Conv1D, Dropout
+from tensorflow.keras.layers import MaxPooling1D, Activation
+from tensorflow.keras.layers import Flatten, BatchNormalization
+
+# Load the dataset
+data = pd.read_csv("/content/creditcard_new.csv")
+data.head()
+
+# Display dataset shape
+data.shape
+
+# Display dataset information
+data.info()
+
+# Display descriptive statistics
+data.describe()
+
+# Check for null values
+data.isnull().sum()
+
+# Separate normal and fraud transactions
+normal = data[data["Class"] == 0]
+fraud = data[data["Class"] == 1]
+
+# Sample the normal transactions to match the number of fraud transactions
+normal = normal.sample(fraud.shape[0])
+
+# Display the shapes after balancing the classes
+normal.shape, fraud.shape
+
+# Concatenate normal and fraud transactions
+df = pd.concat([normal, fraud])
+df.head()
+
+# Separate features (x) and labels (y)
+x = df.drop("Class", axis=1)
+y = df["Class"]
+
+# Split the data into training and testing sets
+x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.2, random_state=42)
+
+# Standardize the features using StandardScaler
+sd = StandardScaler()
+x_train = sd.fit_transform(x_train)
+x_test = sd.transform(x_test)
+
+# Convert labels to numpy arrays
+y_train = y_train.to_numpy()
+y_test = y_test.to_numpy()
+
+# Reshape the data for Conv1D model
+x_train = x_train.reshape(x_train.shape[0], x_train.shape[1], 1)
+x_test = x_test.reshape(x_test.shape[0], x_test.shape[1], 1)
+
+# Display the reshaped data shapes
+x_train.shape, x_test.shape
+
+# Define input size
+input_size = x_train[0].shape
+
+# Build the Convolutional Neural Network (CNN) model
+model = Sequential()
+model.add(Conv1D(32, 2, input_shape=input_size))
+model.add(Activation("relu"))
+model.add(BatchNormalization())
+model.add(MaxPooling1D(2))
+model.add(Dropout(0.2))
+
+model.add(Conv1D(64, 2))
+model.add(Activation("relu"))
+model.add(BatchNormalization())
+model.add(MaxPooling1D(2))
+model.add(Dropout(0.5))
+
+model.add(Flatten())
+model.add(Dense(64))
+model.add(Activation('relu'))
+model.add(Dropout(0.5))
+model.add(Dense(1))
+model.add(Activation('sigmoid'))
+
+model.build(input_shape=(None, *input_size))
+
+# Display the model summary
+model.summary()
+
+# Compile the model
+model.compile(optimizer=Adam(learning_rate=0.005), loss='binary_crossentropy', metrics=['accuracy'])
+
+# Train the model
+epoch = 50
+history = model.fit(x_train, y_train, epochs=epoch, validation_data=(x_test, y_test))
+
+# Function to plot learning curves
+def plot_learning_curve(history, epoch):
+    epochs_range = range(1, epoch + 1)
+    plt.plot(epochs_range, history.history['accuracy'], label="Train")
+    plt.plot(epochs_range, history.history['val_accuracy'], label="Validation")
+    plt.title("Model Accuracy")
+    plt.xlabel("Epochs")
+    plt.ylabel("Accuracy")
+    plt.legend(loc='upper left')
+    plt.show()
+
+    plt.plot(epochs_range, history.history['loss'], label="Train")
+    plt.plot(epochs_range, history.history['val_loss'], label="Validation")
+    plt.title("Model Loss")
+    plt.xlabel("Epochs")
+    plt.ylabel("Loss")
+    plt.legend(loc='upper left')
+    plt.show()
+
+# Plot learning curves
+plot_learning_curve(history, epoch)
